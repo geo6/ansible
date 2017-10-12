@@ -49,12 +49,8 @@
         chdir: "{{ ansible_user_dir }}/mapcache/build"
         target: install
       become: yes
-
-    #- name: Check MapCache version
-    #  shell: mapserv -v | awk '{print $3}'
-    #  register: version
-    #  failed_when: "version.stdout != mapserver_version"
-    #  changed_when: False
+      notify:
+        - Run ldconfig
 
     - name: Create MapCache directory
       file:
@@ -91,4 +87,8 @@
       service:
         name: apache2
         state: restarted
+      become: yes
+
+    - name: Run ldconfig
+      shell: ldconfig
       become: yes
