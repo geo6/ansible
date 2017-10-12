@@ -1,0 +1,55 @@
+# https://trac.osgeo.org/gdal/wiki/DownloadSource
+# https://trac.osgeo.org/gdal/wiki/BuildingOnUnix
+# Configure help : ./configure --help
+---
+- hosts: all
+  remote_user: debian
+  vars:
+    gdal_version: 2.2.2
+
+  tasks:
+    - name: Install dependencies
+      apt:
+        name: "{{ item }}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - build-essential
+        - libpq-dev
+      become: yes
+
+    - name: Download the GDAL {{ gdal_version }} sources
+      get_url:
+        url: http://download.osgeo.org/gdal/{{ gdal_version }}/gdal-{{ gdal_version }}.tar.gz
+        dest: "{{ ansible_user_dir }}/gdal-{{ gdal_version }}.tar.gz"
+
+    - name: Extract tar file
+      unarchive:
+        src: "{{ ansible_user_dir }}/gdal-{{ gdal_version }}.tar.gz"
+        dest: "{{ ansible_user_dir }}"
+        remote_src: yes
+
+    - name: Configure GDAL
+      shell: ./configure --with-pg
+      args:
+        chdir: "{{ ansible_user_dir }}/gdal-{{ gdal_version }}"
+
+    - name: Compile GDAL
+      make:
+        chdir: "{{ ansible_user_dir }}/gdal-{{ gdal_version }}"
+
+    - name: Install GDAL
+      make:
+        chdir: "{{ ansible_user_dir }}/gdal-{{ gdal_version }}"
+        target: install
+      become: yes
+
+    - name: Check GDAL version
+      shell: gdalinfo --version | awk '{print $2}' | sed 's/,//'
+      register: version
+      failed_when: "version.stdout != gdal_version"
+      changed_when: False
+      environment:
+        PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+        LD_LIBRARY_PATH: "/usr/local/lib:{{ ansible_env.LD_LIBRARY_PATH | default('') }}"
+        GDAL_DATA: "/usr/local/share/gdal"
