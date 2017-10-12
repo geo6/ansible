@@ -60,6 +60,8 @@
         chdir: "{{ ansible_user_dir }}/mapserver-{{ mapserver_version }}/build"
         target: install
       become: yes
+      notify:
+        - Run ldconfig
 
     - name: Check MapServer version
       shell: mapserv -v | awk '{print $3}'
@@ -107,4 +109,8 @@
       service:
         name: apache2
         state: restarted
+      become: yes
+
+    - name: Run ldconfig
+      shell: ldconfig
       become: yes
