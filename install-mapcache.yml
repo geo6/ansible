@@ -16,7 +16,7 @@
         - libapr1-dev
         - apache2-dev
         - libpng12-dev
-        - libjpeg62-dev
+        - libjpeg-dev
         - libcurl4-gnutls-dev
         - libpcre3-dev
         - libpixman-1-dev
