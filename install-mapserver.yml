@@ -1,0 +1,110 @@
+# http://www.mapserver.org/installation/unix.html
+# https://github.com/mapserver/mapserver/blob/master/INSTALL.CMAKE
+---
+- hosts: all
+  remote_user: debian
+  vars:
+    mapserver_version: 7.0.6
+
+  tasks:
+    - name: Install dependencies
+      apt:
+        name: "{{ item }}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - build-essential
+        - cmake
+        - libcairo2-dev
+        - libcurl4-gnutls-dev
+        - libfcgi-dev
+        - libfreetype6-dev
+        - libfribidi-dev
+        - libgeos-dev
+        - libgif-dev
+        - libharfbuzz-dev
+        - libjpeg-dev
+        - libpng++-dev
+        - libpq-dev
+        - libproj-dev
+        - libxml2-dev
+      become: yes
+
+    - name: Download the MapServer {{ mapserver_version }} sources
+      get_url:
+        url: http://download.osgeo.org/mapserver/mapserver-{{ mapserver_version }}.tar.gz
+        dest: "{{ ansible_user_dir }}/mapserver-{{ mapserver_version }}.tar.gz"
+
+    - name: Extract tar file
+      unarchive:
+        src: "{{ ansible_user_dir }}/mapserver-{{ mapserver_version }}.tar.gz"
+        dest: "{{ ansible_user_dir }}"
+        remote_src: yes
+
+    - name: Create build directory
+      file:
+        path: "{{ ansible_user_dir }}/mapserver-{{ mapserver_version }}/build"
+        state: directory
+
+    - name: Configure MapServer
+      command: cmake -DWITH_CLIENT_WMS=ON -DWITH_CLIENT_WFS=ON -DWITH_CURL=ON ..
+      args:
+        chdir: "{{ ansible_user_dir }}/mapserver-{{ mapserver_version }}/build"
+
+    - name: Compile MapServer
+      make:
+        chdir: "{{ ansible_user_dir }}/mapserver-{{ mapserver_version }}/build"
+
+    - name: Install MapServer
+      make:
+        chdir: "{{ ansible_user_dir }}/mapserver-{{ mapserver_version }}/build"
+        target: install
+      become: yes
+
+    - name: Check MapServer version
+      shell: mapserv -v | awk '{print $3}'
+      register: version
+      failed_when: "version.stdout != mapserver_version"
+      changed_when: False
+
+    - name: Link MapServer in "cgi-bin" directory
+      file:
+        src: /usr/local/bin/mapserv
+        dest: /usr/lib/cgi-bin/mapserv
+        state: link
+      become: yes
+
+    - name: Create Apache configuration file for MapServer
+      template:
+        src: mapserver.conf.j2
+        dest: /etc/apache2/conf-available/mapserver.conf
+      become: yes
+
+    - name: Enable mod_cgid in Apache
+      command: a2enmod cgid
+      register: command_output
+      changed_when: "'Enabling module cgid.' in command_output.stdout"
+      become: yes
+      notify:
+        - Restart Apache
+
+    - name: Enable MapServer in Apache
+      command: a2enconf mapserver.conf
+      register: command_output
+      changed_when: "'Enabling conf mapserver.' in command_output.stdout"
+      become: yes
+      notify:
+        - Restart Apache
+
+  handlers:
+    - name: Reload Apache
+      service:
+        name: apache2
+        state: reloaded
+      become: yes
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
+      become: yes
