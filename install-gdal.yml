@@ -43,6 +43,8 @@
         chdir: "{{ ansible_user_dir }}/gdal-{{ gdal_version }}"
         target: install
       become: yes
+      notify:
+        - Run ldconfig
 
     - name: Check GDAL version
       shell: gdalinfo --version | awk '{print $2}' | sed 's/,//'
@@ -53,3 +55,8 @@
         PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
         LD_LIBRARY_PATH: "/usr/local/lib:{{ ansible_env.LD_LIBRARY_PATH | default('') }}"
         GDAL_DATA: "/usr/local/share/gdal"
+
+  handlers:
+    - name: Run ldconfig
+      shell: ldconfig
+      become: yes
