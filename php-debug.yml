@@ -1,0 +1,34 @@
+---
+- hosts: all
+  remote_user: debian
+  vars:
+    php_version: 7.0
+
+  tasks:
+    - name: Enable display_errors
+      lineinfile:
+        dest: /etc/php/{{ php_version }}/fpm/pool.d/{{ pool | default('www') }}.conf
+        state: present
+        insertafter: EOF
+        line: "php_admin_value[display_errors] = on"
+      become: yes
+      when: status | default('on') == "on"
+      notify:
+        - Reload PHP-FPM
+
+    - name: Disable display_errors
+      lineinfile:
+        dest: /etc/php/{{ php_version }}/fpm/pool.d/{{ pool | default('www') }}.conf
+        state: absent
+        line: "php_admin_value[display_errors] = on"
+      become: yes
+      when: status | default('on') == "off"
+      notify:
+        - Reload PHP-FPM
+
+  handlers:
+    - name: Reload PHP-FPM
+      service:
+        name: "php{{ php_version }}-fpm"
+        state: reloaded
+      become: yes
