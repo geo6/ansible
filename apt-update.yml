@@ -1,0 +1,17 @@
+---
+- hosts: all
+  remote_user: debian
+  tasks:
+    - name: "Update & Upgrade ({{ upgrade | default('safe') }})"
+      apt:
+        upgrade: "{{ upgrade | default('safe') }}"
+        update_cache: yes
+      become: yes
+    - name: AutoClean
+      apt:
+        autoclean: yes
+      become: yes
+    - name: AutoRemove
+      apt:
+        autoremove: yes
+      become: yes
