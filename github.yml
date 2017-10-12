@@ -1,0 +1,40 @@
+---
+- hosts: all
+  remote_user: debian
+  tasks:
+    - name: Clone or Update repository
+      git:
+        repo: git@github.com:geo6/{{ repo }}.git
+        dest: "{{ dest }}"
+        version: "{{ branch | default('master') }}"
+        key_file: ~/.ssh/ansible
+        accept_hostkey: yes
+        force: yes
+
+    - name: Check if locale/ exists
+      stat:
+        path: "{{ dest }}/locale"
+      register: locale
+    - name: Generate MO files
+      shell: sh "{{ dest }}/locale/generate-mo.sh"
+      when: locale.stat.exists
+
+    - name: Check if composer.json exists
+      stat:
+        path: "{{ dest }}/composer.json"
+      register: composer
+    - name: Install packages based on composer.json.
+      composer:
+        command: install
+        working_dir: "{{ dest }}"
+      when: composer.stat.exists
+
+    - name: Check if package.json exists
+      stat:
+        path: "{{ dest }}/package.json"
+      register: package
+    - name: Install packages based on package.json.
+      npm:
+        path: "{{ dest }}"
+        state: latest
+      when: package.stat.exists
