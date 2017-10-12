@@ -1,0 +1,86 @@
+# http://mapserver.org/mapcache/install.html
+---
+- hosts: all
+  remote_user: debian
+
+  tasks:
+    - name: Install dependencies
+      apt:
+        name: "{{ item }}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - build-essential
+        - cmake
+        - libaprutil1-dev
+        - libapr1-dev
+        - apache2-dev
+      become: yes
+
+    - name: Download the MapCache sources
+      git:
+        repo: git://github.com/mapserver/mapcache.git
+        dest: "{{ ansible_user_dir }}/mapcache"
+
+    - name: Create build directory
+      file:
+        path: "{{ ansible_user_dir }}/mapcache/build"
+        state: directory
+
+    - name: Configure MapCache
+      command: cmake ..
+      args:
+        chdir: "{{ ansible_user_dir }}/mapcache/build"
+
+    - name: Compile MapCache
+      make:
+        chdir: "{{ ansible_user_dir }}/mapcache/build"
+
+    - name: Install MapCache
+      make:
+        chdir: "{{ ansible_user_dir }}/mapcache/build"
+        target: install
+      become: yes
+
+    #- name: Check MapCache version
+    #  shell: mapserv -v | awk '{print $3}'
+    #  register: version
+    #  failed_when: "version.stdout != mapserver_version"
+    #  changed_when: False
+
+    - name: Create MapCache directory
+      file:
+        path: /var/www/data/mapcache
+        state: directory
+      become: yes
+
+    - name: Create Apache configuration file for MapCache
+      template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      with_items:
+        - { src: 'mapcache.load.j2', dest: '/etc/apache2/conf-available/mapcache.load' }
+        - { src: 'mapcache.conf.j2', dest: '/etc/apache2/conf-available/mapcache.conf' }
+        - { src: 'mapcache.xml.j2', dest: '/var/www/data/mapcache/mapcache.xml' }
+      become: yes
+
+    - name: Enable MapCache in Apache
+      command: a2enconf mapcache.conf
+      register: command_output
+      changed_when: "'Enabling conf mapcache.' in command_output.stdout"
+      become: yes
+      notify:
+        - Restart Apache
+
+  handlers:
+    - name: Reload Apache
+      service:
+        name: apache2
+        state: reloaded
+      become: yes
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
+      become: yes
