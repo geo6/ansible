@@ -1,0 +1,79 @@
+# https://mapproxy.org/docs/latest/install.html
+---
+- hosts: all
+  remote_user: debian
+
+  tasks:
+    - name: Install dependencies
+      apt:
+        name: "{{ item }}"
+        state: latest
+        update_cache: yes
+      with_items:
+        - build-essential
+        - libapache2-mod-wsgi
+        - libfreetype6-dev
+        - libgeos-dev
+        - libgdal-dev
+        - libjpeg-dev
+        - libproj0
+        - python-dev
+        - python-imaging
+        - python-lxml
+        - python-pip
+        - python-shapely
+        - python-virtualenv
+        - python-yaml
+        - zlib1g-dev
+      become: yes
+
+    - name: Install MapProxy
+      pip:
+        name: MapProxy
+        state: latest
+      become: yes
+
+    - name: Create MapProxy directory
+      file:
+        path: /var/www/data/{{ item }}
+        state: directory
+      with_items:
+        - mapproxy
+        - mapproxy/conf
+        - mapproxy/seed
+      become: yes
+      become_user: www-data
+
+    - name: Create MapProxy configuration file
+      template:
+        src: mapproxy.config.py.j2
+        dest: /var/www/data/mapproxy/config.py
+      become: yes
+      become_user: www-data
+
+    - name: Create Apache configuration file for MapProxy
+      template:
+        src: mapproxy.conf.j2
+        dest: /etc/apache2/conf-available/mapproxy.conf
+      become: yes
+
+    - name: Enable MapProxy in Apache
+      command: a2enconf mapproxy.conf
+      register: command_output
+      changed_when: "'Enabling conf mapproxy.' in command_output.stdout"
+      become: yes
+      notify:
+        - Restart Apache
+
+  handlers:
+    - name: Reload Apache
+      service:
+        name: apache2
+        state: reloaded
+      become: yes
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
+      become: yes
