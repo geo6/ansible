@@ -11,14 +11,6 @@
         accept_hostkey: yes
         force: yes
 
-    - name: Check if locale/ exists
-      stat:
-        path: "{{ dest }}/locale"
-      register: locale
-    - name: Generate MO files
-      shell: sh "{{ dest }}/locale/generate-mo.sh"
-      when: locale.stat.exists
-
     - name: Check if composer.json exists
       stat:
         path: "{{ dest }}/composer.json"
@@ -38,3 +30,11 @@
         path: "{{ dest }}"
         state: latest
       when: package.stat.exists
+
+    - name: Check if locale/ exists
+      stat:
+        path: "{{ dest }}/locale"
+      register: locale
+    - name: Generate MO files
+      shell: sh "{{ dest }}/locale/generate-mo.sh"
+      when: locale.stat.exists
